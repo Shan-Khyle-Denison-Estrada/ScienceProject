@@ -1,27 +1,28 @@
 import React from 'react';
 
 // Reusable Team Member Row
+// Sizes Adjusted: Image w-28 h-28 (112px), Name text-3xl, Role text-lg
 const TeamMember = ({ name, role, image, isRightAligned, zIndex }) => {
   return (
-    <div className={`flex items-center w-full mb-6 relative ${zIndex}`}>
+    <div className={`flex items-center w-full relative ${zIndex}`}>
       {/* If Right Aligned, text comes first */}
       {isRightAligned && (
-        <div className="flex-1 pr-4 flex flex-col justify-center">
-            <h3 className="text-white text-4xl text-right font-bold leading-tight">{name}</h3>
-            <p className="text-white opacity-80 text-right text-lg">{role}</p>
+        <div className="flex-1 pr-6 flex flex-col justify-center">
+            <h3 className="text-white text-3xl text-right leading-tight">{name}</h3>
+            <p className="text-white opacity-90 text-right text-lg">{role}</p>
         </div>
       )}
 
-      {/* The Image Circle */}
-      <div className="w-32 h-32 rounded-full border-4 border-white shadow-xl overflow-hidden bg-white flex-shrink-0 z-10">
+      {/* The Image Circle - Adjusted to w-28 h-28 */}
+      <div className="w-28 h-28 rounded-full border-4 border-white shadow-xl overflow-hidden bg-white flex-shrink-0 z-10">
         <img src={image} alt={name} className="w-full h-full object-cover" />
       </div>
 
       {/* If Left Aligned (Standard), text comes second */}
       {!isRightAligned && (
-        <div className="flex-1 pl-4 flex flex-col justify-center">
-            <h3 className="text-white text-4xl text-left font-bold leading-tight">{name}</h3>
-            <p className="text-white opacity-80 text-left text-lg">{role}</p>
+        <div className="flex-1 pl-6 flex flex-col justify-center">
+            <h3 className="text-white text-3xl text-left leading-tight">{name}</h3>
+            <p className="text-white opacity-90 text-left text-lg">{role}</p>
         </div>
       )}
     </div>
@@ -30,59 +31,72 @@ const TeamMember = ({ name, role, image, isRightAligned, zIndex }) => {
 
 function About() {
   return (
-    <div className="min-h-screen bg-primary pb-24 font-switzal overflow-hidden">
+    // Main Container
+    <div className="h-[calc(100vh-80px)] bg-primary font-switzal overflow-hidden flex flex-col">
       
       {/* Header */}
-      <div className="pt-10 pb-6 flex justify-center items-center">
-         {/* Logo Placeholder */}
-         <div className="w-16 h-16 bg-white rounded-full mr-4"></div>
-         <h1 className="text-white text-6xl font-bold">VisionCheck</h1>
+      <div className="shrink-0 pt-4 pb-1 flex justify-center items-center">
+         {/* Logo Placeholder - Adjusted to w-16 h-16 */}
+         <div className="w-16 h-16 mr-2">
+            <img 
+              src="/Vector-White.svg" 
+              alt="Logo" 
+              className="w-full h-full object-contain" 
+            />
+         </div>
+         {/* Header Title - Adjusted to text-5xl */}
+         <h1 className="text-white text-5xl -ml-4">VisionCheck</h1>
       </div>
 
       {/* Description */}
-      <div className="px-8 text-center mb-12">
-        <p className="text-white text-xl leading-relaxed">
+      <div className="shrink-0 px-8 text-center mb-1">
+        {/* Description Text - Adjusted to text-lg */}
+        <p className="text-white text-xl leading-snug max-w-4xl mx-auto text-justify">
         &emsp; VisionCheck offers a promising and cost-effective solution to support large-scale vision screening, particularly in regions with limited access to professional eye care.
         </p>
       </div>
 
       {/* Team Section */}
-      <div className="px-4">
-        <h2 className="text-center text-white text-5xl font-bold mb-10">The Team</h2>
+      <div className="flex-1 flex flex-col px-4 min-h-0">
+        {/* Section Title - Adjusted to text-4xl */}
+        <h2 className="shrink-0 text-center text-white text-4xl -mb-16 mt-4">The Team</h2>
         
-        {/* Row 1 (Image Left) */}
-        <TeamMember 
-            name="Shan Khyle Estrada" 
-            role="Lead Researcher & AI Specialist" 
-            image="https://placehold.co/150x150/png"
-            zIndex="z-40"
-        />
+        {/* Team Grid: justify-center with gap-1 */}
+        <div className="flex-1 flex flex-col justify-center gap-1">
+            {/* Row 1 (Image Left) */}
+            <TeamMember 
+                name="Shan Khyle Estrada" 
+                role="Lead Researcher & AI Specialist" 
+                image="/Shan.png"
+                zIndex="z-40"
+            />
 
-        {/* Row 2 (Image Right) */}
-        <TeamMember 
-            name="Angelo John Landiao" 
-            role="Lead Researcher & AI Specialist" 
-            image="https://placehold.co/150x150/png" 
-            isRightAligned={true}
-            zIndex="z-30"
-        />
+            {/* Row 2 (Image Right) */}
+            <TeamMember 
+                name="Angelo John Landiao" 
+                role="Researcher" 
+                image="/Aj.png" 
+                isRightAligned={true}
+                zIndex="z-30"
+            />
 
-        {/* Row 3 (Image Left) */}
-        <TeamMember 
-            name="Hans Christian Alfaras" 
-            role="Research Liaison" 
-            image="https://placehold.co/150x150/png"
-            zIndex="z-20"
-        />
+            {/* Row 3 (Image Left) */}
+            <TeamMember 
+                name="Hans Christian Alfaras" 
+                role="Research Liaison" 
+                image="/Hans.png"
+                zIndex="z-20"
+            />
 
-        {/* Row 4 (Image Right) */}
-        <TeamMember 
-            name="Jaydee Ballaho" 
-            role="Research Adviser" 
-            image="https://placehold.co/150x150/png" 
-            isRightAligned={true}
-            zIndex="z-10"
-        />
+            {/* Row 4 (Image Right) */}
+            <TeamMember 
+                name="Jaydee Ballaho" 
+                role="Research Adviser" 
+                image="/Jaydee.png" 
+                isRightAligned={true}
+                zIndex="z-10"
+            />
+        </div>
       </div>
     </div>
   );

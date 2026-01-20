@@ -12,7 +12,7 @@ const LearnItem = ({ title }) => (
 
 function Learn() {
   return (
-    <div className="p-4 bg-gray-50 min-h-screen pb-24 font-switzal">
+    <div className="p-4 bg-gray-100 h-[calc(100vh-80px)] pb-24 font-switzal">
        <LearnItem title="Common Refractive Errors" />
        <LearnItem title="Eye Care 101" />
        <LearnItem title="Eccentric Photorefraction" />
