@@ -1,7 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom'; // <--- Import useNavigate
 // import * as faceapi from 'face-api.js';
-import * as faceapi from 'face-api.js/dist/face-api.js';
+// import * as faceapi from 'face-api.js/dist/face-api.js';
+
+// Add this line to access the library loaded from the CDN
+const faceapi = window.faceapi;
 
 const Action = () => {
   const navigate = useNavigate(); // <--- Initialize Hook
