@@ -62,11 +62,6 @@ function Home() {
           <span className="px-4 text-gray-300">Explore More</span>
           <div className="flex-1 h-1 bg-gray-300 rounded-full"></div>
         </div>
-        <Link to="/results" className="rounded-lg bg-white">
-          <div className="bg-white rounded-lg active:scale-95 transition-transform h-[20%] flex justify-center items-center mt-4">
-              <span className="text-2xl text-center">Check Past Results</span>
-          </div>
-        </Link>
         <Link to="/learn" className="rounded-lg bg-white">
           <div className="bg-white rounded-lg active:scale-95 transition-transform h-[20%] flex justify-center items-center mt-4">
               <span className="text-2xl text-center">Learn New Things</span>
