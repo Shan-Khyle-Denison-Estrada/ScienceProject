@@ -67,7 +67,7 @@ function About() {
             <TeamMember 
                 name="Shan Khyle Estrada" 
                 role="Lead Researcher & AI Specialist" 
-                image="/Shan.png"
+                image="/shan.png"
                 zIndex="z-40"
             />
 
@@ -75,7 +75,7 @@ function About() {
             <TeamMember 
                 name="Angelo John Landiao" 
                 role="Researcher" 
-                image="/Aj.png" 
+                image="/aj.png" 
                 isRightAligned={true}
                 zIndex="z-30"
             />
@@ -84,7 +84,7 @@ function About() {
             <TeamMember 
                 name="Hans Christian Alfaras" 
                 role="Research Liaison" 
-                image="/Hans.png"
+                image="/hans.png"
                 zIndex="z-20"
             />
 
@@ -92,7 +92,7 @@ function About() {
             <TeamMember 
                 name="Jaydee Ballaho" 
                 role="Research Adviser" 
-                image="/Jaydee.png" 
+                image="/jaydee.png" 
                 isRightAligned={true}
                 zIndex="z-10"
             />
