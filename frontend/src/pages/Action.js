@@ -101,7 +101,7 @@ const Action = () => {
     
     try {
       // NOTE: Update this IP to your specific laptop IP
-      const API_URL = "http://192.168.1.147:8000/predict"; 
+      const API_URL = "https://khalix27-scienceproject.hf.space/predict"; 
       
       const response = await fetch(API_URL, {
         method: 'POST',

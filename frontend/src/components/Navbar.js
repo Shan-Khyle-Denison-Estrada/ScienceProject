@@ -33,10 +33,10 @@ function Navbar() {
       </Link>
 
       {/* 2. Results */}
-      <Link to="/results" className="flex flex-col items-center w-16">
+      {/* <Link to="/results" className="flex flex-col items-center w-16">
         <Icon name="stats" active={isActive('/results')} />
         <span className={`text-xs mt-1 ${isActive('/results') ? 'text-primary font-bold' : 'text-gray-400'}`}>Results</span>
-      </Link>
+      </Link> */}
 
       {/* 3. CENTER ACTION BUTTON (Floating) */}
       <div className="relative -top-2">
@@ -57,10 +57,10 @@ function Navbar() {
       </div>
 
       {/* 4. Learn */}
-      <Link to="/learn" className="flex flex-col items-center w-16">
+      {/* <Link to="/learn" className="flex flex-col items-center w-16">
         <Icon name="grid" active={isActive('/learn')} />
         <span className={`text-xs mt-1 ${isActive('/learn') ? 'text-primary font-bold' : 'text-gray-400'}`}>Learn</span>
-      </Link>
+      </Link> */}
 
       {/* 5. About Us */}
       <Link to="/about" className="flex flex-col items-center w-16">
