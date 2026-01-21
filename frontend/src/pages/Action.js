@@ -17,7 +17,7 @@ const Action = () => {
   
   // State
   const [modelsLoaded, setModelsLoaded] = useState(false);
-  const [error, setError] = useState('');
+  const [setError] = useState('');
 
   // Flash & UI State
   const [hasFlash, setHasFlash] = useState(false);
