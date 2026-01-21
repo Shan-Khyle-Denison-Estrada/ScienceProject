@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom'; // <--- Import useNavigate
-import * as faceapi from 'face-api.js';
+// import * as faceapi from 'face-api.js';
+import * as faceapi from 'face-api.js/dist/face-api.js';
 
 const Action = () => {
   const navigate = useNavigate(); // <--- Initialize Hook
