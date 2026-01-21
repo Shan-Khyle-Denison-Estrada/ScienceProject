@@ -1,39 +1,53 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // <--- Import useNavigate
 import * as faceapi from 'face-api.js';
 
 const Action = () => {
+  const navigate = useNavigate(); // <--- Initialize Hook
   const [step, setStep] = useState('form'); 
   const [formData, setFormData] = useState({ fullName: '', age: '', sex: '' });
   
   // Camera & Tracking Refs
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const [modelsLoaded, setModelsLoaded] = useState(false);
-  const [captureData, setCaptureData] = useState(null); // Stores cropped eyes
-  const [showModal, setShowModal] = useState(false);
   
+  // State
+  const [modelsLoaded, setModelsLoaded] = useState(false);
   const [error, setError] = useState('');
 
-  // 1. Load Face-API Models on Mount
+  // Flash & UI State
+  const [hasFlash, setHasFlash] = useState(false);
+  const [feedback, setFeedback] = useState("Initializing...");
+  const [isReadyToCapture, setIsReadyToCapture] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false); 
+  const [isAnalyzing, setIsAnalyzing] = useState(false); // Loading state for API
+
+  // Constants (1 Meter Distance)
+  const TARGET_FACE_WIDTH_MIN = 85;  
+  const TARGET_FACE_WIDTH_MAX = 165; 
+  const MIN_BRIGHTNESS = 20; 
+  const MAX_CENTER_OFFSET = 50; 
+  const MIN_EYE_OPEN_RATIO = 0.25; 
+
+  // 1. Load Face-API Models
   useEffect(() => {
     const loadModels = async () => {
-      const MODEL_URL = '/models'; // Assumes models are in public/models
+      const MODEL_URL = '/models'; 
       try {
         await Promise.all([
           faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
           faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
         ]);
         setModelsLoaded(true);
-        console.log("FaceAPI Models Loaded");
       } catch (err) {
-        console.error("Error loading models:", err);
-        setError("Error loading AI models. Please ensure /public/models folder exists.");
+        console.error(err);
+        setError("Error loading models. Ensure /public/models exists.");
       }
     };
     loadModels();
   }, []);
 
-  // --- Form Handlers ---
+  // Form Handlers
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
   const handleSexSelect = (value) => setFormData({ ...formData, sex: value });
 
@@ -46,230 +60,267 @@ const Action = () => {
     setStep('camera');
   };
 
-  // --- Camera Logic ---
+  // Camera Lifecycle
   useEffect(() => {
     let stream = null;
     if (step === 'camera' && modelsLoaded) {
       startCamera().then(s => stream = s);
     }
     return () => {
-      // Cleanup: Stop camera and tracking intervals
-      if (stream) stream.getTracks().forEach(track => track.stop());
+      if (stream) {
+        const track = stream.getVideoTracks()[0];
+        if (track) {
+           track.applyConstraints({ advanced: [{ torch: false }] }).catch(() => {});
+           track.stop();
+        }
+      }
     };
   }, [step, modelsLoaded]);
 
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } } 
+      });
+      if (videoRef.current) videoRef.current.srcObject = stream;
+
+      const track = stream.getVideoTracks()[0];
+      const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+      if (capabilities.torch) setHasFlash(true);
+
       return stream;
     } catch (err) {
-      setError("Could not access camera.");
+      console.error(err);
+      setError("Could not access camera. Ensure you are on HTTPS.");
     }
   };
 
-  // --- Face Tracking Loop ---
-  const handleVideoOnPlay = () => {
-    // Run detection loop every 100ms
-    setInterval(async () => {
-      if (videoRef.current && canvasRef.current) {
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
+  // --- API CALL & REDIRECT ---
+  const sendToBackend = async (leftImage, rightImage) => {
+    setIsAnalyzing(true);
+    
+    try {
+      // NOTE: Update this IP to your specific laptop IP
+      const API_URL = "http://192.168.1.147:8000/predict"; 
+      
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          left_eye: leftImage,
+          right_eye: rightImage
+        })
+      });
 
-        // Ensure canvas matches video size
-        const displaySize = { width: video.videoWidth, height: video.videoHeight };
-        faceapi.matchDimensions(canvas, displaySize);
+      const result = await response.json();
 
-        // Detect Face
-        const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
-          .withFaceLandmarks();
-        
-        // Resize detections to match display
-        const resizedDetections = faceapi.resizeResults(detections, displaySize);
-
-        // Clear and Draw Tracking Box
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        faceapi.draw.drawDetections(canvas, resizedDetections);
-        // faceapi.draw.drawFaceLandmarks(canvas, resizedDetections); // Uncomment to see dots
+      if (result.error) {
+        alert("Server Error: " + result.error);
+        setIsCapturing(false); // Allow retrying
+      } else {
+        // --- SUCCESS: REDIRECT TO RESULT PAGE ---
+        navigate('/result-detailed', { 
+          state: { 
+            captureData: { leftEye: leftImage, rightEye: rightImage },
+            formData: formData,
+            diagnosis: result
+          } 
+        });
       }
-    }, 100);
+
+    } catch (err) {
+      console.error("Prediction failed", err);
+      alert("Could not connect to server.");
+      setIsCapturing(false);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
-  // --- Capture & Crop Logic ---
+  // --- Tracking Loop ---
+  const handleVideoOnPlay = () => {
+    const interval = setInterval(async () => {
+      if (!videoRef.current || !canvasRef.current || isCapturing) return;
+      
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const displaySize = { width: video.videoWidth, height: video.videoHeight };
+      faceapi.matchDimensions(canvas, displaySize);
+
+      const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (detection) {
+        const resized = faceapi.resizeResults(detection, displaySize);
+        const { width, x } = resized.detection.box;
+        const landmarks = resized.landmarks;
+
+        new faceapi.draw.DrawBox(resized.detection.box, { label: 'Face', boxColor: isReadyToCapture ? 'green' : 'red' }).draw(canvas);
+
+        let distanceStatus = 'OK';
+        if (width < TARGET_FACE_WIDTH_MIN) distanceStatus = 'Too Far';
+        else if (width > TARGET_FACE_WIDTH_MAX) distanceStatus = 'Too Close';
+
+        const centerX = x + width / 2;
+        const screenCenter = displaySize.width / 2;
+        const isCentered = Math.abs(centerX - screenCenter) < MAX_CENTER_OFFSET;
+
+        const getEyeRatio = (eyePoints) => {
+            const d1 = Math.hypot(eyePoints[1].x - eyePoints[5].x, eyePoints[1].y - eyePoints[5].y);
+            const d2 = Math.hypot(eyePoints[2].x - eyePoints[4].x, eyePoints[2].y - eyePoints[4].y);
+            const width = Math.hypot(eyePoints[0].x - eyePoints[3].x, eyePoints[0].y - eyePoints[3].y);
+            return (d1 + d2) / (2 * width);
+        };
+        const eyesOpen = getEyeRatio(landmarks.getLeftEye()) > MIN_EYE_OPEN_RATIO && getEyeRatio(landmarks.getRightEye()) > MIN_EYE_OPEN_RATIO;
+
+        const checkBrightness = (v) => {
+          const c = document.createElement('canvas');
+          c.width = 50; c.height = 50; 
+          const x = c.getContext('2d');
+          x.drawImage(v, 0, 0, 50, 50);
+          const d = x.getImageData(0, 0, 50, 50).data;
+          let sum = 0;
+          for (let i = 0; i < d.length; i += 4) sum += (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114);
+          return sum / (d.length / 4); 
+        };
+        const lightOk = checkBrightness(video) > MIN_BRIGHTNESS; 
+
+        let msg = '';
+        let ready = false;
+
+        if (!lightOk) msg = "Too Dark";
+        else if (distanceStatus !== 'OK') msg = distanceStatus;
+        else if (!isCentered) msg = "Center Face";
+        else if (!eyesOpen) msg = "Open Eyes";
+        else {
+          msg = "Perfect!";
+          ready = true;
+        }
+        setFeedback(msg);
+        setIsReadyToCapture(ready);
+      } else {
+        setFeedback("No Face");
+        setIsReadyToCapture(false);
+      }
+    }, 200); 
+    return () => clearInterval(interval);
+  };
+
+  // --- CAPTURE SEQUENCE ---
   const handleCapture = async () => {
-    if (!videoRef.current) return;
+    if (!isReadyToCapture || !videoRef.current || isCapturing) return;
+    
+    setIsCapturing(true); 
+    const stream = videoRef.current.srcObject;
+    const track = stream.getVideoTracks()[0];
+    let flashEnabled = false;
 
-    // Detect face one last time for high-res landmarks
-    const detections = await faceapi.detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions())
-      .withFaceLandmarks();
-
-    if (!detections) {
-      alert("No face detected! Please look at the camera.");
-      return;
+    if (hasFlash) {
+      try {
+        await track.applyConstraints({ advanced: [{ torch: true }] });
+        flashEnabled = true;
+        await new Promise(resolve => setTimeout(resolve, 400));
+      } catch (err) { console.warn("Flash failed", err); }
     }
 
-    // Helper to crop eye
-    const cropEye = (landmarks, part) => {
-      const points = part === 'left' ? landmarks.getLeftEye() : landmarks.getRightEye();
+    const detection = await faceapi.detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
+    
+    if (flashEnabled) {
+      track.applyConstraints({ advanced: [{ torch: false }] }).catch(() => {});
+    }
+
+    if (detection) {
+      const cropEye = (landmarks, part) => {
+        const points = part === 'left' ? landmarks.getLeftEye() : landmarks.getRightEye();
+        const xs = points.map(p => p.x);
+        const ys = points.map(p => p.y);
+        const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
+        const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
+        const size = 50; 
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 40; canvas.height = 40; 
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(videoRef.current, centerX - size/2, centerY - size/2, size, size, 0, 0, 40, 40);
+        return canvas.toDataURL('image/png');
+      };
+
+      const left = cropEye(detection.landmarks, 'left');
+      const right = cropEye(detection.landmarks, 'right');
       
-      // Get bounding box of the eye points
-      const xs = points.map(p => p.x);
-      const ys = points.map(p => p.y);
-      const minX = Math.min(...xs);
-      const maxX = Math.max(...xs);
-      const minY = Math.min(...ys);
-      const maxY = Math.max(...ys);
-      
-      const width = maxX - minX;
-      const height = maxY - minY;
-      const centerX = minX + width / 2;
-      const centerY = minY + height / 2;
+      // SEND TO BACKEND & REDIRECT
+      sendToBackend(left, right);
 
-      // Create a square crop box (2x the eye width for context)
-      const size = Math.max(width, height) * 2.5; 
-
-      // Draw to temp canvas
-      const canvas = document.createElement('canvas');
-      canvas.width = 40; // Target Size
-      canvas.height = 40; // Target Size
-      const ctx = canvas.getContext('2d');
-
-      // drawImage(source, sourceX, sourceY, sourceW, sourceH, destX, destY, destW, destH)
-      ctx.drawImage(
-        videoRef.current,
-        centerX - size / 2, centerY - size / 2, size, size, // Source Crop
-        0, 0, 40, 40 // Dest Resize
-      );
-
-      return canvas.toDataURL('image/png');
-    };
-
-    const leftEyeImg = cropEye(detections.landmarks, 'left');
-    const rightEyeImg = cropEye(detections.landmarks, 'right');
-
-    setCaptureData({ leftEye: leftEyeImg, rightEye: rightEyeImg });
-    setShowModal(true);
+    } else {
+      alert("Face lost during flash! Try again.");
+      setIsCapturing(false);
+    }
   };
 
-  // --- Render ---
   return (
     <div className="min-h-screen p-6">
-      
-      {/* STEP 1: FORM (Hidden during camera) */}
       {step === 'form' && (
         <div className="max-w-lg mx-auto mt-10">
           <h2 className="text-3xl font-bold mb-8 text-gray-800">Start Action</h2>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-gray-700 text-sm font-bold mb-2">Full Name</label>
-              <input type="text" name="fullName" value={formData.fullName} onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500 bg-gray-50"
-                placeholder="Enter full name" />
-            </div>
-            <div>
-              <label className="block text-gray-700 text-sm font-bold mb-2">Age</label>
-              <input type="number" name="age" value={formData.age} onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500 bg-gray-50"
-                placeholder="Enter age" />
-            </div>
-            <div>
-              <label className="block text-gray-700 text-sm font-bold mb-3">Sex</label>
-              <div className="flex gap-4">
-                {['Male', 'Female'].map(s => (
-                  <button key={s} type="button" onClick={() => handleSexSelect(s)}
-                    className={`flex-1 py-3 px-4 rounded-xl border-2 font-semibold transition-all ${
-                      formData.sex === s ? 'border-green-600 bg-green-50 text-green-700' : 'border-gray-200 bg-white text-gray-500'
-                    }`}>
-                    {s}
-                  </button>
+             <div><label className="block text-gray-700 font-bold mb-2">Full Name</label>
+             <input name="fullName" value={formData.fullName} onChange={handleChange} className="w-full p-3 border rounded" placeholder="Name" /></div>
+             <div><label className="block text-gray-700 font-bold mb-2">Age</label>
+             <input name="age" type="number" value={formData.age} onChange={handleChange} className="w-full p-3 border rounded" placeholder="Age" /></div>
+             <div className="flex gap-4">
+                {['Male','Female'].map(s => (
+                  <button key={s} type="button" onClick={() => handleSexSelect(s)} 
+                    className={`flex-1 py-3 border rounded-xl ${formData.sex === s ? 'bg-green-100 border-green-600' : 'bg-white'}`}>{s}</button>
                 ))}
-              </div>
-            </div>
-            <button type="submit"
-              className="w-full bg-green-600 text-white font-bold py-4 px-6 rounded-xl hover:bg-green-700 transition shadow-lg shadow-green-200 mt-6">
-              Open Camera
-            </button>
+             </div>
+             <button type="submit" className="w-full bg-green-600 text-white font-bold py-4 rounded-xl mt-4">Open Camera</button>
           </form>
         </div>
       )}
 
-      {/* STEP 2: CAMERA OVERLAY */}
       {step === 'camera' && (
         <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center">
-          
-          {/* Back Arrow */}
-          <button onClick={() => setStep('form')}
-             className="absolute top-6 left-6 z-20 p-2 rounded-full bg-black/30 text-white hover:bg-black/50 backdrop-blur-sm transition">
-             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-8 h-8">
-               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-             </svg>
+          <button onClick={() => setStep('form')} className="absolute top-6 left-6 z-20 text-white p-2 bg-black/30 rounded-full">
+             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
           </button>
 
-          {/* Loading State for Models */}
-          {!modelsLoaded && <div className="absolute z-30 text-white bg-black/50 px-4 py-2 rounded">Loading Face Tracking...</div>}
+          {hasFlash && (
+            <div className="absolute top-6 right-6 z-20 bg-yellow-500/90 text-black px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider shadow-lg backdrop-blur-sm border border-yellow-400">
+               ⚠️ Warning: Flash will activate
+            </div>
+          )}
 
-          {/* Video Container (Relative for Canvas positioning) */}
-          <div className="relative w-full h-full flex items-center justify-center bg-black">
-            {error ? <div className="text-red-500 bg-white p-4 rounded">{error}</div> : (
-              <>
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  onPlay={handleVideoOnPlay}
-                  className="absolute w-full h-full object-cover"
-                />
-                <canvas 
-                  ref={canvasRef} 
-                  className="absolute w-full h-full object-cover pointer-events-none" 
-                />
-              </>
-            )}
+          {/* LOADING OVERLAY */}
+          {isAnalyzing && (
+            <div className="absolute inset-0 z-[60] bg-black/80 flex flex-col items-center justify-center">
+              <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-white mt-4 font-bold text-lg">Analyzing Eyes...</p>
+            </div>
+          )}
+
+          <div className={`absolute top-20 px-6 py-2 rounded-full z-20 font-bold shadow-lg transition-colors duration-300 ${isReadyToCapture ? 'bg-green-500 text-white' : 'bg-red-500/80 text-white'}`}>
+             {isCapturing ? "Capturing..." : feedback}
           </div>
 
-          {/* Capture Button */}
+          <div className="relative w-full h-full flex items-center justify-center bg-gray-900 overflow-hidden">
+             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 w-64 h-80 border-2 border-dashed border-white/50 rounded-[50%] pointer-events-none opacity-50"></div>
+             <video ref={videoRef} autoPlay playsInline muted onPlay={handleVideoOnPlay} className="absolute w-full h-full object-cover" />
+             <canvas ref={canvasRef} className="absolute w-full h-full object-cover pointer-events-none" />
+          </div>
+
           <div className="absolute bottom-10 flex justify-center w-full z-20">
              <button 
                 onClick={handleCapture}
-                className="bg-white w-20 h-20 rounded-full border-4 border-gray-300 shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+                disabled={!isReadyToCapture || isCapturing}
+                className={`w-20 h-20 rounded-full border-4 shadow-2xl flex items-center justify-center transition-all duration-300 ${
+                  isReadyToCapture && !isCapturing
+                    ? 'bg-white border-green-500 scale-110 cursor-pointer hover:scale-125' 
+                    : 'bg-gray-400 border-gray-600 opacity-50 cursor-not-allowed'
+                }`}
              >
-                <div className="w-16 h-16 bg-white border-2 border-black rounded-full"></div>
+                <div className={`w-16 h-16 rounded-full border-2 ${isReadyToCapture ? 'bg-white border-black' : 'bg-gray-500 border-gray-700'}`}></div>
              </button>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL - Displays 40x40 Cropped Eyes */}
-      {showModal && captureData && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl animate-fade-in-up">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">Eyes Captured</h3>
-            
-            <div className="flex justify-center gap-8 mb-6">
-              <div className="flex flex-col items-center">
-                <span className="text-xs text-gray-500 mb-1">Left Eye (40x40)</span>
-                <img src={captureData.leftEye} alt="Left" className="w-[40px] h-[40px] border border-gray-300 rounded shadow-sm bg-gray-100" />
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="text-xs text-gray-500 mb-1">Right Eye (40x40)</span>
-                <img src={captureData.rightEye} alt="Right" className="w-[40px] h-[40px] border border-gray-300 rounded shadow-sm bg-gray-100" />
-              </div>
-            </div>
-
-            <p className="text-sm text-gray-500 mb-6">
-              Images processed successfully. <br/> No records saved yet.
-            </p>
-
-            <button 
-              onClick={() => setShowModal(false)}
-              className="w-full bg-gray-900 text-white py-3 rounded-xl font-semibold hover:bg-gray-800 transition"
-            >
-              Close / Retake
-            </button>
           </div>
         </div>
       )}

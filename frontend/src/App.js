@@ -5,7 +5,8 @@ import Home from './pages/Home';
 import Results from './pages/Results';
 import Learn from './pages/Learn';
 import About from './pages/About';
-import Action from './pages/Action'; // 1. Import the new page
+import Action from './pages/Action';
+import ResultDetailed from './pages/ResultDetailed'; // 1. Import the new page
 
 function App() {
   return (
@@ -19,7 +20,8 @@ function App() {
         <Route path="/about" element={<About />} />
         
         {/* 2. Use the component here */}
-        <Route path="/action" element={<Action />} /> 
+        <Route path="/action" element={<Action />} />
+        <Route path="/result-detailed" element={<ResultDetailed />} />
       </Routes>
     </BrowserRouter>
   );
