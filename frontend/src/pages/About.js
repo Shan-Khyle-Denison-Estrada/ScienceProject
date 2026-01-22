@@ -73,18 +73,18 @@ function About() {
 
             {/* Row 2 (Image Right) */}
             <TeamMember 
-                name="Angelo John Landiao" 
-                role="Researcher" 
-                image="/aj.png" 
+                name="Hans Christian Alfaras" 
+                role="Research Liaison" 
+                image="/hans.png" 
                 isRightAligned={true}
                 zIndex="z-30"
             />
 
             {/* Row 3 (Image Left) */}
             <TeamMember 
-                name="Hans Christian Alfaras" 
-                role="Research Liaison" 
-                image="/hans.png"
+                name="Angelo John Landiao" 
+                role="Researcher" 
+                image="/aj.png"
                 zIndex="z-20"
             />
 
