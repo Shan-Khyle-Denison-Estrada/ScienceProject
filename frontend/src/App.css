@@ -1,7 +1,7 @@
 @font-face {
   font-family: 'Switzal';
   /* Make sure this path matches your actual filename exactly! */
-  src: url('./fonts/Switzal.ttf') format('truetype'); 
+  src: url('/fonts/Switzal.ttf') format('truetype'); 
   font-weight: normal;
   font-style: normal;
 }
