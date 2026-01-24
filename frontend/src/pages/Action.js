@@ -236,17 +236,47 @@ const Action = () => {
 
     if (detection) {
       const cropEye = (landmarks, part) => {
+        // 1. Get the 6 points for the specific eye
         const points = part === 'left' ? landmarks.getLeftEye() : landmarks.getRightEye();
+        
+        // 2. Calculate the center of the eye
         const xs = points.map(p => p.x);
         const ys = points.map(p => p.y);
         const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
         const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
-        const size = 50; 
 
+        // 3. Calculate actual eye width (distance between corners: point 0 and point 3)
+        const eyeWidth = Math.hypot(points[3].x - points[0].x, points[3].y - points[0].y);
+        const eyeHeight = Math.hypot(points[1].y - points[5].y, points[2].y - points[4].y) * 2; // Approximate height
+
+        // 4. DYNAMIC SIZING (The Fix)
+        // Your training data is very tight (40x40 is mostly eye). 
+        // At 1 meter, the eye width in video is small (~20px). 
+        // A factor of 1.5 ensures we crop a box roughly 30x30px (tight) rather than 50x50px (loose).
+        const zoomFactor = 1.6; 
+        
+        // Ensure the crop box is square
+        const size = Math.max(eyeWidth, eyeHeight) * zoomFactor;
+
+        // 5. Draw to 40x40 canvas
         const canvas = document.createElement('canvas');
-        canvas.width = 40; canvas.height = 40; 
+        canvas.width = 40; 
+        canvas.height = 40; 
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(videoRef.current, centerX - size/2, centerY - size/2, size, size, 0, 0, 40, 40);
+        
+        // Use the dynamic 'size' instead of hardcoded 50
+        ctx.drawImage(
+          videoRef.current, 
+          centerX - size / 2, // Source X
+          centerY - size / 2, // Source Y
+          size,               // Source Width
+          size,               // Source Height
+          0,                  // Dest X
+          0,                  // Dest Y
+          40,                 // Dest Width
+          40                  // Dest Height
+        );
+        
         return canvas.toDataURL('image/png');
       };
 
