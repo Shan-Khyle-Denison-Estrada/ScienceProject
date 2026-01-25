@@ -253,7 +253,7 @@ const Action = () => {
         // Your training data is very tight (40x40 is mostly eye). 
         // At 1 meter, the eye width in video is small (~20px). 
         // A factor of 1.5 ensures we crop a box roughly 30x30px (tight) rather than 50x50px (loose).
-        const zoomFactor = 1.6; 
+        const zoomFactor = 1.3; 
         
         // Ensure the crop box is square
         const size = Math.max(eyeWidth, eyeHeight) * zoomFactor;
