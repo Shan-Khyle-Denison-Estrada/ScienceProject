@@ -1,100 +1,77 @@
 import React from 'react';
 
 // Reusable Team Member Row
-// Sizes Adjusted: Image w-28 h-28 (112px), Name text-3xl, Role text-lg
-const TeamMember = ({ name, role, image, isRightAligned, zIndex }) => {
+const TeamMember = ({ name, role, image, isRightAligned }) => {
   return (
-    <div className={`flex items-center w-full relative ${zIndex}`}>
-      {/* If Right Aligned, text comes first */}
-      {isRightAligned && (
-        <div className="flex-1 pr-6 flex flex-col justify-center">
-            <h3 className="text-white text-3xl text-right leading-tight">{name}</h3>
-            <p className="text-white opacity-90 text-right text-lg">{role}</p>
-        </div>
-      )}
+    <div className={`flex flex-col md:flex-row items-center w-full max-w-4xl mx-auto py-4 ${isRightAligned ? 'md:flex-row-reverse' : ''}`}>
+      
+      {/* Text Section (Mobile: Always Bottom, Desktop: Left or Right) */}
+      <div className={`flex-1 px-6 flex flex-col justify-center items-center ${isRightAligned ? 'md:items-end md:text-right' : 'md:items-start md:text-left'} text-center mt-4 md:mt-0`}>
+          <h3 className="text-white text-2xl md:text-3xl font-bold leading-tight">{name}</h3>
+          <p className="text-white/80 text-lg md:text-xl font-light">{role}</p>
+      </div>
 
-      {/* The Image Circle - Adjusted to w-28 h-28 */}
-      <div className="w-28 h-28 rounded-full border-4 border-white shadow-xl overflow-hidden bg-white flex-shrink-0 z-10">
+      {/* Image Circle */}
+      <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-white/20 shadow-2xl overflow-hidden bg-white/10 shrink-0 mx-6 transform transition-transform hover:scale-105">
         <img src={image} alt={name} className="w-full h-full object-cover" />
       </div>
 
-      {/* If Left Aligned (Standard), text comes second */}
-      {!isRightAligned && (
-        <div className="flex-1 pl-6 flex flex-col justify-center">
-            <h3 className="text-white text-3xl text-left leading-tight">{name}</h3>
-            <p className="text-white opacity-90 text-left text-lg">{role}</p>
-        </div>
-      )}
+      {/* Spacer for alignment on desktop */}
+      <div className="flex-1 hidden md:block"></div>
     </div>
   );
 };
 
 function About() {
   return (
-    // Main Container
-    <div className="h-[calc(100vh-80px)] bg-primary font-switzal overflow-hidden flex flex-col">
+    <div className="bg-primary min-h-screen font-switzal overflow-y-auto pb-28">
       
       {/* Header */}
-      <div className="shrink-0 pt-4 pb-1 flex justify-center items-center">
-         {/* Logo Placeholder - Adjusted to w-16 h-16 */}
-         <div className="w-16 h-16 mr-2">
+      <div className="pt-8 pb-6 flex flex-col justify-center items-center px-4">
+         <div className="w-20 h-20 bg-white/10 rounded-full p-3 mb-3 shadow-inner">
             <img 
               src="/Vector-White.svg" 
               alt="Logo" 
               className="w-full h-full object-contain" 
             />
          </div>
-         {/* Header Title - Adjusted to text-5xl */}
-         <h1 className="text-white text-5xl -ml-4">VisionCheck</h1>
+         <h1 className="text-white text-4xl md:text-6xl font-bold tracking-tight">VisionCheck</h1>
+         
+         <div className="mt-6 max-w-2xl text-center">
+            <p className="text-white/90 text-lg md:text-xl leading-relaxed">
+            VisionCheck offers a promising and cost-effective solution to support large-scale vision screening, particularly in regions with limited access to professional eye care.
+            </p>
+         </div>
       </div>
 
-      {/* Description */}
-      <div className="shrink-0 px-8 text-center mb-1">
-        {/* Description Text - Adjusted to text-lg */}
-        <p className="text-white text-xl leading-snug max-w-4xl mx-auto text-justify">
-        &emsp; VisionCheck offers a promising and cost-effective solution to support large-scale vision screening, particularly in regions with limited access to professional eye care.
-        </p>
-      </div>
+      <div className="w-full h-[1px] bg-white/20 max-w-4xl mx-auto my-4"></div>
 
       {/* Team Section */}
-      <div className="flex-1 flex flex-col px-4 min-h-0">
-        {/* Section Title - Adjusted to text-4xl */}
-        <h2 className="shrink-0 text-center text-white text-4xl -mb-16 mt-4">The Team</h2>
+      <div className="flex flex-col px-4 pb-8">
+        <h2 className="text-center text-white text-3xl md:text-4xl font-bold mb-8 opacity-90">Meet The Team</h2>
         
-        {/* Team Grid: justify-center with gap-1 */}
-        <div className="flex-1 flex flex-col justify-center gap-1">
-            {/* Row 1 (Image Left) */}
+        <div className="flex flex-col gap-6 md:gap-2">
             <TeamMember 
                 name="Shan Khyle Estrada" 
                 role="Lead Researcher & AI Specialist" 
                 image="/shan.png"
-                zIndex="z-40"
             />
-
-            {/* Row 2 (Image Right) */}
             <TeamMember 
                 name="Hans Christian Alfaras" 
                 role="Research Liaison" 
                 image="/hans.png" 
                 isRightAligned={true}
-                zIndex="z-30"
             />
-
-            {/* Row 3 (Image Left) */}
             <TeamMember 
                 name="Angelo John Landiao" 
                 role="Researcher" 
                 image="/aj.png"
-                zIndex="z-20"
             />
-
-            {/* Row 4 (Image Right) */}
             <TeamMember 
                 name="Jaydee Ballaho" 
                 role="Research Adviser" 
                 image="/jaydee.png" 
                 isRightAligned={true}
-                zIndex="z-10"
             />
         </div>
       </div>
