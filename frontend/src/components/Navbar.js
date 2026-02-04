@@ -29,7 +29,7 @@ function Navbar() {
       {/* 3. CENTER ACTION BUTTON (Floating) */}
       <div className="relative -top-8">
         <Link to="/action">
-            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-lg p-1.5">
+            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.1)] p-1.5">
                 <div className="w-full h-full bg-primary rounded-full flex items-center justify-center shadow-inner hover:bg-primary/90 transition-colors transform hover:scale-105 active:scale-95 duration-200">
                   <img 
                     src="/Vector-White.svg" 
