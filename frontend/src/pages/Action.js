@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-// Access face-api from the global window object (loaded via CDN)
+// Access face-api from global window object
 const faceapi = window.faceapi;
 
 const Action = () => {
@@ -19,17 +19,16 @@ const Action = () => {
 
   // Flash & UI State
   const [hasFlash, setHasFlash] = useState(false);
-  const [flashActive, setFlashActive] = useState(false); // For visual white screen effect
+  const [flashActive, setFlashActive] = useState(false); // Visual white screen effect
   const [feedback, setFeedback] = useState("Initializing...");
   const [isReadyToCapture, setIsReadyToCapture] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false); 
   const [isAnalyzing, setIsAnalyzing] = useState(false); 
 
   // Constants
-  // Adjusted for HD video: Face width checks might need tuning depending on how close users hold the phone.
-  // These ratios generally work regardless of resolution if using face-api's relative boxes.
+  // Adjusted for HD video distance
   const MIN_BRIGHTNESS = 20; 
-  const MAX_CENTER_OFFSET = 100; // Increased tolerance for HD width
+  const MAX_CENTER_OFFSET = 100; 
   const MIN_EYE_OPEN_RATIO = 0.25; 
 
   // 1. Load Face-API Models
@@ -73,7 +72,6 @@ const Action = () => {
       if (stream) {
         const track = stream.getVideoTracks()[0];
         if (track) {
-           // Turn off torch if it was left on
            track.applyConstraints({ advanced: [{ torch: false }] }).catch(() => {});
            track.stop();
         }
@@ -81,14 +79,14 @@ const Action = () => {
     };
   }, [step, modelsLoaded]);
 
-  // --- 2. UPDATED CAMERA SETUP (High Resolution) ---
+  // --- 2. HD CAMERA CONFIGURATION ---
+  // Essential for "Macro" cropping. Standard 480p is too blurry for refraction analysis.
   const startCamera = async () => {
     try {
-      // We request 1920x1080 (1080p) to get sharp details on iPhone 11
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
-          facingMode: { exact: "environment" }, // Attempt to force rear camera
-          width: { ideal: 1920 }, 
+          facingMode: { exact: "environment" }, // Force rear camera
+          width: { ideal: 1920 }, // Request 1080p
           height: { ideal: 1080 } 
         } 
       });
@@ -101,24 +99,20 @@ const Action = () => {
 
       return stream;
     } catch (err) {
-      console.error("HD Camera failed, retrying with standard config", err);
+      console.warn("HD failed, falling back", err);
+      // Fallback for older phones
       try {
-        // Fallback for devices that don't support 1080p or 'exact' facingMode
         const stream = await navigator.mediaDevices.getUserMedia({ 
           video: { facingMode: "environment" } 
         });
         if (videoRef.current) videoRef.current.srcObject = stream;
         return stream;
-      } catch (fallbackErr) {
-        setError("Could not access camera.");
-      }
+      } catch (e) { setError("Camera access denied"); }
     }
   };
 
-  // --- API CALL & REDIRECT ---
   const sendToBackend = async (leftImage, rightImage) => {
     setIsAnalyzing(true);
-    
     try {
       const API_URL = "https://khalix27-scienceproject.hf.space/predict"; 
       
@@ -145,9 +139,8 @@ const Action = () => {
           } 
         });
       }
-
     } catch (err) {
-      console.error("Prediction failed", err);
+      console.error(err);
       alert("Could not connect to server.");
       setIsCapturing(false);
     } finally {
@@ -155,7 +148,7 @@ const Action = () => {
     }
   };
 
-  // --- Tracking Loop (Optimized for Display) ---
+  // --- Tracking Loop ---
   const handleVideoOnPlay = () => {
     const interval = setInterval(async () => {
       if (!videoRef.current || !canvasRef.current || isCapturing) return;
@@ -163,28 +156,22 @@ const Action = () => {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       
-      // We rely on the displayed size for the Green Box overlay
+      // Use client dimensions for display overlay logic
       const displaySize = { width: video.clientWidth, height: video.clientHeight };
       faceapi.matchDimensions(canvas, displaySize);
 
-      // Detect face
       const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       if (detection) {
-        // Resize detection to fit the CSS size of the video element
         const resized = faceapi.resizeResults(detection, displaySize);
         const { width, x } = resized.detection.box;
         const landmarks = resized.landmarks;
 
-        // Draw Box
         new faceapi.draw.DrawBox(resized.detection.box, { label: 'Face', boxColor: isReadyToCapture ? '#22c55e' : '#ef4444' }).draw(canvas);
 
-        // --- Logic Checks ---
-        // Note: We use relative checks here so exact pixel width matters less
-        const distanceOk = width > 70 && width < 250; // Adjusted range slightly for responsive CSS
-        
+        const distanceOk = width > 70 && width < 250; 
         const centerX = x + width / 2;
         const screenCenter = displaySize.width / 2;
         const isCentered = Math.abs(centerX - screenCenter) < MAX_CENTER_OFFSET;
@@ -192,12 +179,12 @@ const Action = () => {
         const getEyeRatio = (eyePoints) => {
             const d1 = Math.hypot(eyePoints[1].x - eyePoints[5].x, eyePoints[1].y - eyePoints[5].y);
             const d2 = Math.hypot(eyePoints[2].x - eyePoints[4].x, eyePoints[2].y - eyePoints[4].y);
-            const width = Math.hypot(eyePoints[0].x - eyePoints[3].x, eyePoints[0].y - eyePoints[3].y);
-            return (d1 + d2) / (2 * width);
+            const w = Math.hypot(eyePoints[0].x - eyePoints[3].x, eyePoints[0].y - eyePoints[3].y);
+            return (d1 + d2) / (2 * w);
         };
         const eyesOpen = getEyeRatio(landmarks.getLeftEye()) > MIN_EYE_OPEN_RATIO && getEyeRatio(landmarks.getRightEye()) > MIN_EYE_OPEN_RATIO;
 
-        // Brightness Check (on small sample)
+        // Brightness
         const checkBrightness = (v) => {
           const c = document.createElement('canvas');
           c.width = 50; c.height = 50; 
@@ -224,15 +211,15 @@ const Action = () => {
         setFeedback(msg);
         setIsReadyToCapture(ready);
       } else {
-        setFeedback("No Face Detected");
+        setFeedback("No Face");
         setIsReadyToCapture(false);
       }
     }, 200); 
     return () => clearInterval(interval);
   };
 
-  // --- 3. UPDATED CAPTURE SEQUENCE (The "Flash Photo" Logic) ---
-const handleCapture = async () => {
+  // --- 3. UPDATED MACRO CAPTURE SEQUENCE ---
+  const handleCapture = async () => {
     if (!isReadyToCapture || !videoRef.current || isCapturing) return;
     
     setIsCapturing(true); 
@@ -240,56 +227,54 @@ const handleCapture = async () => {
     const stream = video.srcObject;
     const track = stream.getVideoTracks()[0];
     
-    // 1. Flash ON
+    // A. Flash ON
     if (hasFlash) {
       try {
         await track.applyConstraints({ advanced: [{ torch: true }] });
-        // Shorten delay slightly to catch pupil before it constricts too much, 
-        // while still allowing exposure to settle.
-        await new Promise(resolve => setTimeout(resolve, 400)); 
+        await new Promise(resolve => setTimeout(resolve, 400)); // Allow exposure sync
       } catch (err) { console.warn("Flash failed", err); }
     }
 
-    // 2. Visual Shutter Effect
+    // B. Visual Shutter Effect
     setFlashActive(true);
     setTimeout(() => setFlashActive(false), 200);
 
-    // 3. Detect on High-Res Stream
+    // C. Detect on High-Res Source
     const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
     
-    // 4. Flash OFF
+    // D. Flash OFF
     if (hasFlash) {
       track.applyConstraints({ advanced: [{ torch: false }] }).catch(() => {});
     }
 
     if (detection) {
-      const cropEyeHighQuality = (landmarks, part) => {
+      // E. MACRO CROP LOGIC
+      const cropEyeMacro = (landmarks, part) => {
         const points = part === 'left' ? landmarks.getLeftEye() : landmarks.getRightEye();
         
-        // Calculate Center
+        // Center Calculation
         const xs = points.map(p => p.x);
         const ys = points.map(p => p.y);
         const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
         const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
 
-        // Calculate Eye Width
         const eyeWidth = Math.hypot(points[3].x - points[0].x, points[3].y - points[0].y);
         
-        // --- KEY CHANGE: TIGHTER CROP FACTOR ---
-        // 1.3 provides a tight "Macro" view (Iris + Sclera), excluding eyebrows/nose.
-        // This is crucial for analyzing the refractive crescent.
-        const zoomFactor = 1.3; 
+        // --- 50% REDUCTION TARGET ---
+        // 0.65 Factor: This crops the image to be only 65% of the eye's corner-to-corner width.
+        // This effectively isolates the Iris and Pupil, removing the corners of the eye and surrounding skin.
+        const zoomFactor = 0.65; 
         
-        // Ensure we don't crop smaller than 50px to prevent garbage data if detection glitches
-        const cropSize = Math.max(eyeWidth * zoomFactor, 50); 
+        // Minimal safeguard size (40px)
+        const cropSize = Math.max(eyeWidth * zoomFactor, 40); 
 
-        // Draw to Canvas
         const canvas = document.createElement('canvas');
+        // Output at 224x224 for the AI Model
         canvas.width = 224; 
         canvas.height = 224; 
         const ctx = canvas.getContext('2d');
         
-        // Use high-quality smoothing for the digital zoom
+        // High Quality Scaling (Digital Zoom)
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
 
@@ -297,16 +282,16 @@ const handleCapture = async () => {
           video, 
           centerX - cropSize / 2, // Source X
           centerY - cropSize / 2, // Source Y
-          cropSize,               // Source Width (Tight area)
-          cropSize,               // Source Height (Tight area)
-          0, 0, 224, 224          // Destination (Scales up to fill box)
+          cropSize,               // Source Width (Very small, tight area)
+          cropSize,               // Source Height
+          0, 0, 224, 224          // Dest (Scaled up)
         );
         
-        return canvas.toDataURL('image/jpeg', 0.95); // High quality JPEG
+        return canvas.toDataURL('image/jpeg', 0.95);
       };
 
-      const left = cropEyeHighQuality(detection.landmarks, 'left');
-      const right = cropEyeHighQuality(detection.landmarks, 'right');
+      const left = cropEyeMacro(detection.landmarks, 'left');
+      const right = cropEyeMacro(detection.landmarks, 'right');
       
       sendToBackend(left, right);
 
@@ -346,7 +331,7 @@ const handleCapture = async () => {
       {step === 'camera' && (
         <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center">
           
-          {/* VISUAL FLASH OVERLAY */}
+          {/* Visual Flash Overlay */}
           <div className={`fixed inset-0 bg-white z-[60] pointer-events-none transition-opacity duration-200 ease-out ${flashActive ? 'opacity-100' : 'opacity-0'}`}></div>
 
           <button onClick={() => setStep('form')} className="absolute top-6 left-6 z-20 text-white p-2 bg-black/30 backdrop-blur-md rounded-full">
@@ -356,35 +341,27 @@ const handleCapture = async () => {
           {hasFlash && (
              <div className="absolute top-6 right-6 z-20 flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20">
                <span className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></span>
-               <span className="text-white text-xs font-bold uppercase tracking-wider">Flash Auto</span>
+               <span className="text-white text-xs font-bold uppercase tracking-wider">Flash Ready</span>
             </div>
           )}
 
-          {/* LOADING STATE */}
           {isAnalyzing && (
             <div className="absolute inset-0 z-[70] bg-black/80 flex flex-col items-center justify-center">
               <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-white mt-4 font-bold text-lg animate-pulse">Processing Image...</p>
+              <p className="text-white mt-4 font-bold text-lg animate-pulse">Analyzing Refraction...</p>
             </div>
           )}
 
-          {/* FEEDBACK PILL */}
           <div className={`absolute top-24 px-6 py-2 rounded-full z-20 font-bold shadow-lg transition-all duration-300 transform ${isReadyToCapture ? 'bg-green-500 text-white scale-105' : 'bg-white/90 text-red-500 backdrop-blur-sm'}`}>
              {isCapturing ? "Hold Steady..." : feedback}
           </div>
 
-          {/* CAMERA VIEWPORT */}
           <div className="relative w-full h-full flex items-center justify-center bg-gray-900 overflow-hidden">
-             {/* Guide Oval */}
              <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 w-72 h-96 border-4 border-dashed rounded-[50%] pointer-events-none transition-colors duration-300 opacity-60 ${isReadyToCapture ? 'border-green-400' : 'border-white'}`}></div>
-             
-             {/* Video & Canvas */}
-             {/* object-cover ensures it fills screen, mimicking native camera app */}
              <video ref={videoRef} autoPlay playsInline muted onPlay={handleVideoOnPlay} className="absolute w-full h-full object-cover" />
              <canvas ref={canvasRef} className="absolute w-full h-full object-cover pointer-events-none" />
           </div>
 
-          {/* CAPTURE BUTTON */}
           <div className="absolute bottom-12 flex justify-center w-full z-20">
              <button 
                 onClick={handleCapture}
