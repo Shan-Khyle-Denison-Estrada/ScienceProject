@@ -232,7 +232,7 @@ const Action = () => {
   };
 
   // --- 3. UPDATED CAPTURE SEQUENCE (The "Flash Photo" Logic) ---
-  const handleCapture = async () => {
+const handleCapture = async () => {
     if (!isReadyToCapture || !videoRef.current || isCapturing) return;
     
     setIsCapturing(true); 
@@ -240,67 +240,69 @@ const Action = () => {
     const stream = video.srcObject;
     const track = stream.getVideoTracks()[0];
     
-    // A. Flash ON
+    // 1. Flash ON
     if (hasFlash) {
       try {
         await track.applyConstraints({ advanced: [{ torch: true }] });
-        // WAIT: Allow iPhone auto-exposure to adjust to the bright light
-        await new Promise(resolve => setTimeout(resolve, 500)); 
+        // Shorten delay slightly to catch pupil before it constricts too much, 
+        // while still allowing exposure to settle.
+        await new Promise(resolve => setTimeout(resolve, 400)); 
       } catch (err) { console.warn("Flash failed", err); }
     }
 
-    // B. Trigger Visual "Shutter" Flash
+    // 2. Visual Shutter Effect
     setFlashActive(true);
-    setTimeout(() => setFlashActive(false), 200); // Visual effect lasts 200ms
+    setTimeout(() => setFlashActive(false), 200);
 
-    // C. Detect on the actual High-Res Stream
-    // We detect again to ensure we get the coordinates at the exact moment of capture
+    // 3. Detect on High-Res Stream
     const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
     
-    // D. Flash OFF immediately after grabbing frame data
+    // 4. Flash OFF
     if (hasFlash) {
       track.applyConstraints({ advanced: [{ torch: false }] }).catch(() => {});
     }
 
     if (detection) {
-      // E. High-Res Cropping Logic
       const cropEyeHighQuality = (landmarks, part) => {
         const points = part === 'left' ? landmarks.getLeftEye() : landmarks.getRightEye();
         
-        // 1. Math: Points are based on Video Intrinsic Size (e.g., 1920x1080)
-        // No need to scale if FaceAPI detected on the video element directly
-        
+        // Calculate Center
         const xs = points.map(p => p.x);
         const ys = points.map(p => p.y);
         const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
         const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
 
+        // Calculate Eye Width
         const eyeWidth = Math.hypot(points[3].x - points[0].x, points[3].y - points[0].y);
         
-        // 2. Zoom Factor: Get a nice detailed square
-        const zoomFactor = 2.0; 
-        const cropSize = Math.max(eyeWidth * zoomFactor, 80); // Ensure minimum size
+        // --- KEY CHANGE: TIGHTER CROP FACTOR ---
+        // 1.3 provides a tight "Macro" view (Iris + Sclera), excluding eyebrows/nose.
+        // This is crucial for analyzing the refractive crescent.
+        const zoomFactor = 1.3; 
+        
+        // Ensure we don't crop smaller than 50px to prevent garbage data if detection glitches
+        const cropSize = Math.max(eyeWidth * zoomFactor, 50); 
 
-        // 3. Draw to Canvas
+        // Draw to Canvas
         const canvas = document.createElement('canvas');
-        canvas.width = 224; // Standardize output size (High Quality)
+        canvas.width = 224; 
         canvas.height = 224; 
         const ctx = canvas.getContext('2d');
         
+        // Use high-quality smoothing for the digital zoom
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+
         ctx.drawImage(
           video, 
-          centerX - cropSize / 2, // Source X (High Res)
-          centerY - cropSize / 2, // Source Y (High Res)
-          cropSize,               // Source Width
-          cropSize,               // Source Height
-          0,                      // Dest X
-          0,                      // Dest Y
-          224,                    // Dest Width
-          224                     // Dest Height
+          centerX - cropSize / 2, // Source X
+          centerY - cropSize / 2, // Source Y
+          cropSize,               // Source Width (Tight area)
+          cropSize,               // Source Height (Tight area)
+          0, 0, 224, 224          // Destination (Scales up to fill box)
         );
         
-        // 4. Return as JPEG 0.9 (Better for photos than PNG)
-        return canvas.toDataURL('image/jpeg', 0.9);
+        return canvas.toDataURL('image/jpeg', 0.95); // High quality JPEG
       };
 
       const left = cropEyeHighQuality(detection.landmarks, 'left');
