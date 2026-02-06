@@ -26,7 +26,6 @@ const Action = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false); 
 
   // Constants
-  // const MIN_BRIGHTNESS = 20; // <--- COMMENTED OUT
   const MAX_CENTER_OFFSET = 100; 
   const MIN_EYE_OPEN_RATIO = 0.25; 
 
@@ -162,11 +161,13 @@ const Action = () => {
 
       if (detection) {
         const resized = faceapi.resizeResults(detection, displaySize);
-        const { width, x } = resized.detection.box;
-        const landmarks = resized.landmarks;
+        // const { width, x } = resized.detection.box; // Unused if checks are disabled
+        // const landmarks = resized.landmarks; // Unused if checks are disabled
 
-        new faceapi.draw.DrawBox(resized.detection.box, { label: 'Face', boxColor: isReadyToCapture ? '#22c55e' : '#ef4444' }).draw(canvas);
+        // Always Green Box if detected
+        new faceapi.draw.DrawBox(resized.detection.box, { label: 'Face', boxColor: '#22c55e' }).draw(canvas);
 
+        /* // --- CONDITIONS COMMENTED OUT ---
         const distanceOk = width > 70 && width < 250; 
         const centerX = x + width / 2;
         const screenCenter = displaySize.width / 2;
@@ -179,34 +180,21 @@ const Action = () => {
             return (d1 + d2) / (2 * w);
         };
         const eyesOpen = getEyeRatio(landmarks.getLeftEye()) > MIN_EYE_OPEN_RATIO && getEyeRatio(landmarks.getRightEye()) > MIN_EYE_OPEN_RATIO;
-
-        // --- LIGHTING CONDITION COMMENTED OUT ---
-        /*
-        const checkBrightness = (v) => {
-          const c = document.createElement('canvas');
-          c.width = 50; c.height = 50; 
-          const x = c.getContext('2d');
-          x.drawImage(v, 0, 0, 50, 50);
-          const d = x.getImageData(0, 0, 50, 50).data;
-          let sum = 0;
-          for (let i = 0; i < d.length; i += 4) sum += (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114);
-          return sum / (d.length / 4); 
-        };
-        const lightOk = checkBrightness(video) > MIN_BRIGHTNESS; 
         */
-        const lightOk = true; // <--- FORCED TO TRUE
 
-        let msg = '';
-        let ready = false;
+        let msg = "Ready";
+        let ready = true;
 
-        // if (!lightOk) msg = "Too Dark"; // <--- COMMENTED OUT
-        if (!distanceOk) msg = width < 70 ? "Move Closer" : "Too Close"; // Changed to IF since previous IF is commented
+        /*
+        if (!distanceOk) msg = width < 70 ? "Move Closer" : "Too Close";
         else if (!isCentered) msg = "Center Face";
         else if (!eyesOpen) msg = "Open Eyes";
         else {
           msg = "Perfect!";
           ready = true;
         }
+        */
+
         setFeedback(msg);
         setIsReadyToCapture(ready);
       } else {
@@ -348,8 +336,8 @@ const Action = () => {
 
           <div className="relative w-full h-full flex items-center justify-center bg-gray-900 overflow-hidden">
              
-             {/* --- OVAL GUIDE (Size: w-64 h-80) --- */}
-             <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 w-64 h-80 border-4 border-dashed rounded-[50%] pointer-events-none transition-colors duration-300 opacity-60 ${isReadyToCapture ? 'border-green-400' : 'border-white'}`}></div>
+             {/* --- OVAL GUIDE (Size: w-32 h-56) --- */}
+             <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 w-32 h-56 border-4 border-dashed rounded-[50%] pointer-events-none transition-colors duration-300 opacity-60 ${isReadyToCapture ? 'border-green-400' : 'border-white'}`}></div>
              
              <video ref={videoRef} autoPlay playsInline muted onPlay={handleVideoOnPlay} className="absolute w-full h-full object-cover" />
              <canvas ref={canvasRef} className="absolute w-full h-full object-cover pointer-events-none" />
