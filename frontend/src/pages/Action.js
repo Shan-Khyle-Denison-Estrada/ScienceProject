@@ -26,7 +26,6 @@ const Action = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false); 
 
   // Constants
-  // Adjusted for HD video distance
   const MIN_BRIGHTNESS = 20; 
   const MAX_CENTER_OFFSET = 100; 
   const MIN_EYE_OPEN_RATIO = 0.25; 
@@ -80,13 +79,12 @@ const Action = () => {
   }, [step, modelsLoaded]);
 
   // --- 2. HD CAMERA CONFIGURATION ---
-  // Essential for "Macro" cropping. Standard 480p is too blurry for refraction analysis.
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
-          facingMode: { exact: "environment" }, // Force rear camera
-          width: { ideal: 1920 }, // Request 1080p
+          facingMode: { exact: "environment" }, 
+          width: { ideal: 1920 }, 
           height: { ideal: 1080 } 
         } 
       });
@@ -100,7 +98,6 @@ const Action = () => {
       return stream;
     } catch (err) {
       console.warn("HD failed, falling back", err);
-      // Fallback for older phones
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
           video: { facingMode: "environment" } 
@@ -156,7 +153,6 @@ const Action = () => {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       
-      // Use client dimensions for display overlay logic
       const displaySize = { width: video.clientWidth, height: video.clientHeight };
       faceapi.matchDimensions(canvas, displaySize);
 
@@ -184,7 +180,6 @@ const Action = () => {
         };
         const eyesOpen = getEyeRatio(landmarks.getLeftEye()) > MIN_EYE_OPEN_RATIO && getEyeRatio(landmarks.getRightEye()) > MIN_EYE_OPEN_RATIO;
 
-        // Brightness
         const checkBrightness = (v) => {
           const c = document.createElement('canvas');
           c.width = 50; c.height = 50; 
@@ -218,7 +213,7 @@ const Action = () => {
     return () => clearInterval(interval);
   };
 
-  // --- 3. UPDATED MACRO CAPTURE SEQUENCE ---
+  // --- 3. CAPTURE SEQUENCE ---
   const handleCapture = async () => {
     if (!isReadyToCapture || !videoRef.current || isCapturing) return;
     
@@ -231,7 +226,7 @@ const Action = () => {
     if (hasFlash) {
       try {
         await track.applyConstraints({ advanced: [{ torch: true }] });
-        await new Promise(resolve => setTimeout(resolve, 400)); // Allow exposure sync
+        await new Promise(resolve => setTimeout(resolve, 400)); 
       } catch (err) { console.warn("Flash failed", err); }
     }
 
@@ -248,11 +243,9 @@ const Action = () => {
     }
 
     if (detection) {
-      // E. MACRO CROP LOGIC
       const cropEyeMacro = (landmarks, part) => {
         const points = part === 'left' ? landmarks.getLeftEye() : landmarks.getRightEye();
         
-        // Center Calculation
         const xs = points.map(p => p.x);
         const ys = points.map(p => p.y);
         const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
@@ -260,31 +253,25 @@ const Action = () => {
 
         const eyeWidth = Math.hypot(points[3].x - points[0].x, points[3].y - points[0].y);
         
-        // --- 50% REDUCTION TARGET ---
-        // 0.65 Factor: This crops the image to be only 65% of the eye's corner-to-corner width.
-        // This effectively isolates the Iris and Pupil, removing the corners of the eye and surrounding skin.
+        // --- MACRO ZOOM (0.65) ---
         const zoomFactor = 0.65; 
-        
-        // Minimal safeguard size (40px)
         const cropSize = Math.max(eyeWidth * zoomFactor, 40); 
 
         const canvas = document.createElement('canvas');
-        // Output at 224x224 for the AI Model
         canvas.width = 224; 
         canvas.height = 224; 
         const ctx = canvas.getContext('2d');
         
-        // High Quality Scaling (Digital Zoom)
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
 
         ctx.drawImage(
           video, 
-          centerX - cropSize / 2, // Source X
-          centerY - cropSize / 2, // Source Y
-          cropSize,               // Source Width (Very small, tight area)
-          cropSize,               // Source Height
-          0, 0, 224, 224          // Dest (Scaled up)
+          centerX - cropSize / 2, 
+          centerY - cropSize / 2, 
+          cropSize,               
+          cropSize,               
+          0, 0, 224, 224          
         );
         
         return canvas.toDataURL('image/jpeg', 0.95);
@@ -331,7 +318,6 @@ const Action = () => {
       {step === 'camera' && (
         <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center">
           
-          {/* Visual Flash Overlay */}
           <div className={`fixed inset-0 bg-white z-[60] pointer-events-none transition-opacity duration-200 ease-out ${flashActive ? 'opacity-100' : 'opacity-0'}`}></div>
 
           <button onClick={() => setStep('form')} className="absolute top-6 left-6 z-20 text-white p-2 bg-black/30 backdrop-blur-md rounded-full">
@@ -357,7 +343,11 @@ const Action = () => {
           </div>
 
           <div className="relative w-full h-full flex items-center justify-center bg-gray-900 overflow-hidden">
-             <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 w-72 h-96 border-4 border-dashed rounded-[50%] pointer-events-none transition-colors duration-300 opacity-60 ${isReadyToCapture ? 'border-green-400' : 'border-white'}`}></div>
+             
+             {/* --- ADJUSTED OVAL SIZE HERE --- */}
+             {/* Changed from w-72 h-96 to w-64 h-80 */}
+             <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 w-64 h-80 border-4 border-dashed rounded-[50%] pointer-events-none transition-colors duration-300 opacity-60 ${isReadyToCapture ? 'border-green-400' : 'border-white'}`}></div>
+             
              <video ref={videoRef} autoPlay playsInline muted onPlay={handleVideoOnPlay} className="absolute w-full h-full object-cover" />
              <canvas ref={canvasRef} className="absolute w-full h-full object-cover pointer-events-none" />
           </div>
