@@ -26,7 +26,7 @@ const Action = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false); 
 
   // Constants
-  const MIN_BRIGHTNESS = 20; 
+  // const MIN_BRIGHTNESS = 20; // <--- COMMENTED OUT
   const MAX_CENTER_OFFSET = 100; 
   const MIN_EYE_OPEN_RATIO = 0.25; 
 
@@ -180,6 +180,8 @@ const Action = () => {
         };
         const eyesOpen = getEyeRatio(landmarks.getLeftEye()) > MIN_EYE_OPEN_RATIO && getEyeRatio(landmarks.getRightEye()) > MIN_EYE_OPEN_RATIO;
 
+        // --- LIGHTING CONDITION COMMENTED OUT ---
+        /*
         const checkBrightness = (v) => {
           const c = document.createElement('canvas');
           c.width = 50; c.height = 50; 
@@ -191,12 +193,14 @@ const Action = () => {
           return sum / (d.length / 4); 
         };
         const lightOk = checkBrightness(video) > MIN_BRIGHTNESS; 
+        */
+        const lightOk = true; // <--- FORCED TO TRUE
 
         let msg = '';
         let ready = false;
 
-        if (!lightOk) msg = "Too Dark";
-        else if (!distanceOk) msg = width < 70 ? "Move Closer" : "Too Close";
+        // if (!lightOk) msg = "Too Dark"; // <--- COMMENTED OUT
+        if (!distanceOk) msg = width < 70 ? "Move Closer" : "Too Close"; // Changed to IF since previous IF is commented
         else if (!isCentered) msg = "Center Face";
         else if (!eyesOpen) msg = "Open Eyes";
         else {
@@ -344,8 +348,7 @@ const Action = () => {
 
           <div className="relative w-full h-full flex items-center justify-center bg-gray-900 overflow-hidden">
              
-             {/* --- ADJUSTED OVAL SIZE HERE --- */}
-             {/* Changed from w-72 h-96 to w-64 h-80 */}
+             {/* --- OVAL GUIDE (Size: w-64 h-80) --- */}
              <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 w-64 h-80 border-4 border-dashed rounded-[50%] pointer-events-none transition-colors duration-300 opacity-60 ${isReadyToCapture ? 'border-green-400' : 'border-white'}`}></div>
              
              <video ref={videoRef} autoPlay playsInline muted onPlay={handleVideoOnPlay} className="absolute w-full h-full object-cover" />
