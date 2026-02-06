@@ -155,52 +155,24 @@ const Action = () => {
       const displaySize = { width: video.clientWidth, height: video.clientHeight };
       faceapi.matchDimensions(canvas, displaySize);
 
+      // Attempt detection (for visual box only)
       const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       if (detection) {
         const resized = faceapi.resizeResults(detection, displaySize);
-        // const { width, x } = resized.detection.box; // Unused if checks are disabled
-        // const landmarks = resized.landmarks; // Unused if checks are disabled
-
-        // Always Green Box if detected
+        // Draw Green Box if detected
         new faceapi.draw.DrawBox(resized.detection.box, { label: 'Face', boxColor: '#22c55e' }).draw(canvas);
+      } 
 
-        /* // --- CONDITIONS COMMENTED OUT ---
-        const distanceOk = width > 70 && width < 250; 
-        const centerX = x + width / 2;
-        const screenCenter = displaySize.width / 2;
-        const isCentered = Math.abs(centerX - screenCenter) < MAX_CENTER_OFFSET;
-
-        const getEyeRatio = (eyePoints) => {
-            const d1 = Math.hypot(eyePoints[1].x - eyePoints[5].x, eyePoints[1].y - eyePoints[5].y);
-            const d2 = Math.hypot(eyePoints[2].x - eyePoints[4].x, eyePoints[2].y - eyePoints[4].y);
-            const w = Math.hypot(eyePoints[0].x - eyePoints[3].x, eyePoints[0].y - eyePoints[3].y);
-            return (d1 + d2) / (2 * w);
-        };
-        const eyesOpen = getEyeRatio(landmarks.getLeftEye()) > MIN_EYE_OPEN_RATIO && getEyeRatio(landmarks.getRightEye()) > MIN_EYE_OPEN_RATIO;
-        */
-
-        let msg = "Ready";
-        let ready = true;
-
-        /*
-        if (!distanceOk) msg = width < 70 ? "Move Closer" : "Too Close";
-        else if (!isCentered) msg = "Center Face";
-        else if (!eyesOpen) msg = "Open Eyes";
-        else {
-          msg = "Perfect!";
-          ready = true;
-        }
-        */
-
-        setFeedback(msg);
-        setIsReadyToCapture(ready);
-      } else {
-        setFeedback("No Face");
-        setIsReadyToCapture(false);
-      }
+      // --- REMOVED THE "ELSE" CONDITION ---
+      // We now force the app to be "Ready" at all times.
+      // This allows you to click capture even if the face isn't detected yet (e.g. in the dark).
+      // The actual capture function will turn on the flash and find the face then.
+      setFeedback("Ready");
+      setIsReadyToCapture(true);
+      
     }, 200); 
     return () => clearInterval(interval);
   };
@@ -227,6 +199,8 @@ const Action = () => {
     setTimeout(() => setFlashActive(false), 200);
 
     // C. Detect on High-Res Source
+    // Note: We still perform detection here because we NEED landmarks to crop the eye accurately.
+    // Since the flash is now ON, detection should succeed even if it failed during the preview.
     const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
     
     // D. Flash OFF
@@ -275,7 +249,8 @@ const Action = () => {
       sendToBackend(left, right);
 
     } else {
-      alert("Motion blur prevented capture. Please try again.");
+      // If detection fails even WITH flash, we alert the user.
+      alert("Could not detect face even with flash. Please center yourself and try again.");
       setIsCapturing(false);
     }
   };
@@ -336,7 +311,7 @@ const Action = () => {
 
           <div className="relative w-full h-full flex items-center justify-center bg-gray-900 overflow-hidden">
              
-             {/* --- OVAL GUIDE (Size: w-32 h-56) --- */}
+             {/* --- OVAL GUIDE (Size: w-[132px] h-[180px] approx small oval) --- */}
              <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 w-[132px] h-[180px] border-4 border-dashed rounded-[50%] pointer-events-none transition-colors duration-300 opacity-60 ${isReadyToCapture ? 'border-green-400' : 'border-white'}`}></div>
              
              <video ref={videoRef} autoPlay playsInline muted onPlay={handleVideoOnPlay} className="absolute w-full h-full object-cover" />
