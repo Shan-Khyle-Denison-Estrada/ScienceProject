@@ -337,7 +337,7 @@ const Action = () => {
           <div className="relative w-full h-full flex items-center justify-center bg-gray-900 overflow-hidden">
              
              {/* --- OVAL GUIDE (Size: w-32 h-56) --- */}
-             <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 w-32 h-44 border-4 border-dashed rounded-[50%] pointer-events-none transition-colors duration-300 opacity-60 ${isReadyToCapture ? 'border-green-400' : 'border-white'}`}></div>
+             <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 w-[132px] h-[180px] border-4 border-dashed rounded-[50%] pointer-events-none transition-colors duration-300 opacity-60 ${isReadyToCapture ? 'border-green-400' : 'border-white'}`}></div>
              
              <video ref={videoRef} autoPlay playsInline muted onPlay={handleVideoOnPlay} className="absolute w-full h-full object-cover" />
              <canvas ref={canvasRef} className="absolute w-full h-full object-cover pointer-events-none" />
