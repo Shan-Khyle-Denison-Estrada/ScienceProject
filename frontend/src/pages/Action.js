@@ -108,41 +108,60 @@ const Action = () => {
   };
 
   const sendToBackend = async (leftImage, rightImage) => {
-    setIsAnalyzing(true);
+setIsAnalyzing(true);
+    setFeedback("Analyzing...");
+
     try {
-      const API_URL = "https://khalix27-scienceproject.hf.space/predict"; 
-      
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          left_eye: leftImage,
-          right_eye: rightImage
-        })
-      });
-
-      const result = await response.json();
-
-      if (result.error) {
-        alert("Server Error: " + result.error);
-        setIsCapturing(false); 
-      } else {
-        navigate('/result-detailed', { 
-          state: { 
-            captureData: { leftEye: leftImage, rightEye: rightImage },
-            formData: formData,
-            diagnosis: result
-          } 
+        // 1. Capture the images from the canvas (assuming you have logic to split/capture eyes)
+        // Note: Ensure getEyeImages() or equivalent logic exists to get base64 strings
+        const leftEyeImage = ""; // Replace with your actual capture logic
+        const rightEyeImage = ""; // Replace with your actual capture logic
+        
+        // ... (Your existing fetch code) ...
+        
+        const response = await fetch('hhttps://khalix27-scienceproject.hf.space/predict', { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                left_eye: leftEyeImage, 
+                right_eye: rightEyeImage
+            })
         });
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Could not connect to server.");
-      setIsCapturing(false);
+
+        if (!response.ok) throw new Error("Server error");
+
+        const apiResult = await response.json(); 
+        // apiResult is: { left_eye_prediction: "Normal", right_eye_prediction: "Myopia" }
+
+        console.log("✅ Backend received:", apiResult);
+
+        // --- THE FIX: MAP DATA CORRECTLY ---
+        navigate('/result', { 
+            state: { 
+                // 1. Pass the User Info (Critical for "Name" field)
+                formData: formData, 
+
+                // 2. Pass the Diagnosis (Map API keys to Frontend keys)
+                diagnosis: {
+                    left_diagnosis: apiResult.left_eye_prediction,   // Map left_eye_prediction -> left_diagnosis
+                    right_diagnosis: apiResult.right_eye_prediction  // Map right_eye_prediction -> right_diagnosis
+                },
+
+                // 3. Pass the Images (If Result page needs to show them)
+                captureData: {
+                    leftEye: leftEyeImage,
+                    rightEye: rightEyeImage
+                }
+            } 
+        });
+
+    } catch (error) {
+        console.error("❌ Error:", error);
+        alert("Failed to analyze. Please try again.");
     } finally {
-      setIsAnalyzing(false);
+        setIsAnalyzing(false);
     }
-  };
+};
 
   // --- Tracking Loop ---
   const handleVideoOnPlay = () => {
