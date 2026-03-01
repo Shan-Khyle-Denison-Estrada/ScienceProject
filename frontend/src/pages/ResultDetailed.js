@@ -6,16 +6,24 @@ function ResultDetailed() {
   const location = useLocation();
 
   // Safely extract data passed from Action.js
-  // If data is missing (e.g., direct access), provide fallbacks
   const { captureData, formData, diagnosis } = location.state || {
     captureData: { leftEye: null, rightEye: null },
     formData: { fullName: 'Unknown', age: '-', sex: '-' },
-    diagnosis: { left_diagnosis: 'Unknown', right_diagnosis: 'Unknown' }
+    diagnosis: { 
+        left_diagnosis: 'Unknown', left_confidence: 0, 
+        right_diagnosis: 'Unknown', right_confidence: 0 
+    }
   };
 
   // Helper to determine text color based on diagnosis
   const getStatusColor = (status) => {
     return status === 'Normal' ? 'text-green-500' : 'text-red-500';
+  };
+
+  // Helper to format the confidence decimal into a percentage
+  const formatConfidence = (conf) => {
+    if (!conf) return '';
+    return `Confidence: ${(conf * 100).toFixed(1)}%`;
   };
 
   return (
@@ -66,11 +74,16 @@ function ResultDetailed() {
                     )}
                 </div>
 
-                {/* Left Eye Result */}
-                <div className="flex-1 flex justify-center items-center">
+                {/* Left Eye Result & Confidence */}
+                <div className="flex-1 flex flex-col justify-center items-center mt-2">
                     <p className={`text-4xl md:text-5xl font-bold ${getStatusColor(diagnosis.left_diagnosis)}`}>
                         {diagnosis.left_diagnosis.toUpperCase()}
                     </p>
+                    {diagnosis.left_confidence > 0 && (
+                        <p className="text-gray-500 text-sm md:text-base font-semibold">
+                            {formatConfidence(diagnosis.left_confidence)}
+                        </p>
+                    )}
                 </div>
             </div>
 
@@ -89,11 +102,16 @@ function ResultDetailed() {
                     )}
                 </div>
 
-                {/* Right Eye Result */}
-                <div className="flex-1 flex justify-center items-center">
+                {/* Right Eye Result & Confidence */}
+                <div className="flex-1 flex flex-col justify-center items-center mt-2">
                     <p className={`text-4xl md:text-5xl font-bold ${getStatusColor(diagnosis.right_diagnosis)}`}>
                         {diagnosis.right_diagnosis.toUpperCase()}
                     </p>
+                    {diagnosis.right_confidence > 0 && (
+                        <p className="text-gray-500 text-sm md:text-base font-semibold">
+                            {formatConfidence(diagnosis.right_confidence)}
+                        </p>
+                    )}
                 </div>
             </div>
         </div>
